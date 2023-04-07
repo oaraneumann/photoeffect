@@ -1,0 +1,625 @@
+<!-- This is based on DillingerLee's great template here:
+https://github.com/Team-Code/KA_Offline -->
+<html> 
+ <head>
+    <title>Processing.JS inside Webpages: Template</title> 
+</head>
+ <body>
+    <p align="center"> 
+	<!--This draws the Canvas on the webpage -->
+      <canvas id="mycanvas"></canvas> 
+    </p>
+ </body>
+ 
+ <!-- Run all the JavaScript stuff -->
+ <!-- Include the processing.js library -->
+ <!-- See https://khanacademy.zendesk.com/hc/en-us/articles/202260404-What-parts-of-ProcessingJS-does-Khan-Academy-support- for differences -->
+ <script src="https://cdn.jsdelivr.net/processing.js/1.4.8/processing.min.js"></script> 
+ 
+ <script>
+    var sketchProc = function(processingInstance) {
+     with (processingInstance) {
+        size(400, 400); 
+        frameRate(30);
+        
+/*Photoelectric Effect Demonstration*/
+
+var selectedWavelength = 750;
+var PLANCKS_CONST = 4.13567E-15;
+var LIGHT_SPEED = 3E8;
+
+var colorSlider= {
+    x: 20, 
+    y: 70, 
+    length: 300, 
+    height: 30, 
+    sliderPos: 0
+};
+
+var intensitySlider = {
+    x: 20,
+    y: 135,
+    length: 300,
+    height: 30,
+    sliderPos: 0
+};
+
+var wavePacket = {
+    x: 0,
+    y: -30,
+    amplitude: 0,
+    wavelength: 0
+};
+
+var drawHeader = function() {
+    background(40, 40, 50);
+    fill(255, 255, 255);
+    var title = createFont("sans-serif", 25);
+    textFont(title); 
+    text("The Photoelectric Effect", 20, 35);
+};
+
+var selectedElement;
+var ElementBox = function(element) {
+    this.x = element.x || 340;
+    this.y = element.y || 10;
+    this.length = element.length || 50;
+    this.height = element.height || 50;
+    this.name = element.name;
+    this.symbol = element.symbol;
+    this.workFunction = element.workFunction;
+    this.onHover = element.onHover || function() {
+        stroke(0, 0, 0); 
+        strokeWeight(2);
+        textSize(25);
+        var xPosText = this.x + this.length/2;
+        var yPosText = this.y + this.height/2;
+        fill(40, 40, 50);
+        rect(this.x, this.y, this.length, this.height);
+        fill(255, 255, 255);
+        textAlign(CENTER, CENTER);
+        text(this.symbol, xPosText, yPosText);
+        textAlign(BASELINE,BASELINE);
+        fill(255, 255, 0);
+    };
+    
+    this.onClick = element.onClick || function() {
+        var temp = selectedElement;
+        selectedElement = this;
+        this(temp);
+    };
+    
+    ElementBox.prototype.draw = function() {
+        strokeWeight(2);
+        stroke(0, 0, 0);
+        textSize(25);
+        var xPosText = this.x + this.length/2;
+        var yPosText = this.y + this.height/2;
+        fill(255, 255, 255);
+        rect(this.x, this.y, this.length, this.height);
+        var blueDark = color(40, 40, 50);
+        fill(blueDark);
+        textAlign(CENTER, CENTER);
+        text(this.symbol, xPosText, yPosText);
+        textAlign(BASELINE,BASELINE);
+    };
+    
+    ElementBox.prototype.isMouseInside = function() {
+        return mouseX > this.x &&
+               mouseX < (this.x + this.length) &&
+               mouseY > this.y &&
+               mouseY < (this.y + this.height);
+    };
+    
+    ElementBox.prototype.onHoverHandler = function() {
+        if(this.isMouseInside()) {
+            this.onHover();
+        }
+    };
+    
+    ElementBox.prototype.onClickHandler = function() {
+        if(this.isMouseInside()) {
+            this.onClick();
+        }
+    };
+};
+
+var elements = [
+    {
+        name: "Sodium", 
+        symbol: "Na",
+        workFunction: 2.36,
+        y: 10,
+    },
+    {
+        name: "Cesium",
+        symbol: "Cs",
+        y: 60,
+        workFunction: 2.14
+    },
+    {
+        name: "Calcium",
+        symbol: "Ca",
+        y: 110,
+        workFunction: 2.87
+    }
+];
+
+selectedElement = new ElementBox(elements[0]);
+var elementBoxes = [];
+var drawElementBoxes = function() {
+    for(var i = 0; i < elements.length; i++) {
+        elementBoxes[i] = new ElementBox(elements[i]);
+        elementBoxes[i].draw();
+    }  
+    
+};
+
+var ColorSlider = function(colorSlider) {
+    this.length = colorSlider.length;
+    this.height = colorSlider.height;
+    this.x = colorSlider.x;
+    this.y = colorSlider.y;
+    this.sliderPos = colorSlider.sliderPos;
+    
+    var drawSliderBar = function(color) {
+        noStroke();
+        fill(red(color), green(color), blue(color), 210);
+        rect(colorSlider.x + colorSlider.sliderPos, colorSlider.y - 5, 10, colorSlider.height + 10);
+    };
+    
+    ColorSlider.prototype.draw = function() {
+        var boxLength = 3;
+        var numBoxes = this.length/boxLength;
+        var red = 255;
+        var green = 0;
+        var blue = 0;
+        var xPos = this.x;
+        for(var i = 0; i < numBoxes; i++) {
+            fill(red, green, blue);
+            noStroke();
+            xPos += boxLength;
+            rect(xPos, this.y, boxLength, this.height);
+            if(green < 255 && red > 0) {
+                green += 4.3;
+            }
+            else if(green >= 255 && red > 0) {
+                red -= 15;
+            }
+            else if(red <= 0 && blue < 255) {
+                blue += 30;
+            }
+            else if(blue >= 255) {
+                green -= 20;
+            }
+        }
+        var white = color(255, 255, 255);
+        drawSliderBar(white);
+    };
+    
+    ColorSlider.prototype.getPacketWavelength = function() {
+        return 35 - (this.sliderPos/10);
+    };
+    
+    ColorSlider.prototype.getActualWavelength = function() {
+        return 750 - this.sliderPos;
+    };
+};
+
+var IntensitySlider = function(intensitySlider) {
+    ColorSlider.call(this, intensitySlider);
+    
+    var drawSliderBar = function(color) {
+        noStroke();
+        fill(red(color), green(color), blue(color), 210);
+        rect(intensitySlider.x + intensitySlider.sliderPos, intensitySlider.y - 5, 10, intensitySlider.height + 10);
+    };
+    
+    IntensitySlider.prototype.draw = function() {
+        var boxLength = 3;
+        var numBoxes = this.length/boxLength;
+        var red = 0, green = 0, blue = 0;
+        var xPos = this.x;
+        for(var i = 0; i < numBoxes; i++) {
+            fill(red, green, blue);
+            noStroke();
+            xPos += boxLength;
+            red += 3;
+            green += 3;
+            blue += 3;
+            rect(xPos, this.y, boxLength, this.height);
+        }
+        var purple = color(255, 0, 255);
+        drawSliderBar(purple);
+    };
+    
+    IntensitySlider.prototype.getPacketAmplitude = function() {
+        return this.sliderPos/3;
+    };
+    
+};
+
+var drawSliders = function() {
+    textSize(16);
+    fill(255, 255, 255);
+    text("Light Color (λ = " + selectedWavelength + " nm): ", 35, 57);
+    var topSlider = new ColorSlider(colorSlider);
+    topSlider.draw();
+    fill(255, 255, 255);
+    text("Light Intensity: ", 35, 123);
+    var bottomSlider = new IntensitySlider(intensitySlider);
+    bottomSlider.draw();
+    
+    wavePacket.wavelength = topSlider.getPacketWavelength();
+    wavePacket.amplitude = bottomSlider.getPacketAmplitude();
+    selectedWavelength = topSlider.getActualWavelength();
+};
+
+var drawMetalPlate = function() {
+    textSize(12);
+    fill(255, 255, 255);
+    textAlign(RIGHT, BASELINE);
+    text(selectedElement.name, 175, 235);
+    text("Plate", 170, 250);
+    textAlign(BASELINE, BASELINE);
+    textSize(30)
+    text("-", 80, 290)
+    pushMatrix();
+    stroke(110, 122, 80);
+    strokeWeight(2);
+    fill(150, 150, 150);
+    translate(118, 239);
+    rotate(20 * (3.14/180));
+    rect(0, 0, 10, 50);
+    popMatrix();
+};
+
+var drawElectronCollector = function() {
+    textSize(12);
+    fill(255, 255, 255);
+    text("Electron", 270, 245);
+    text("Collector", 270, 260);
+    textSize(25)
+    text("+", 270, 300)
+    fill(0, 0, 0);
+    stroke(80, 80, 80);
+    strokeWeight(2);
+    rect(250, 250, 4, 50);
+};
+
+var drawRightWire = function() {
+    fill(100, 100, 100);
+    noStroke();
+    rect(255, 270, 100, 10);
+    rect(355, 270, 10, 100); 
+    rect(270, 360, 90, 10);
+};
+
+var PolarPoint = function(r, theta, originX, originY) {
+    this.r = r;
+    this.theta = theta;
+    this.originX = originX || 0;
+    this.originY = originY || 0;
+    
+    PolarPoint.prototype.toCartesian = function() {
+        var x = this.originX;
+        var y = this.originY;
+        x += this.r * cos(this.theta);
+        y += this.r * sin(this.theta);
+        return {x: x, y: y};
+    };
+};
+
+var drawAmmeterScreen = function() {
+    stroke(100, 100, 100);
+    strokeWeight(5);
+    fill(255, 255, 255);
+    rect(100, 310, 170, 85);
+};
+
+var drawAmmeterIntervals = function() {
+    textSize(12);
+    var interval = 1.0;
+    for(var i = -47, j = 0; i <= 0; i += 7, j += interval) {
+        fill(0, 0, 0);
+        var polar = new PolarPoint(65, i, 180, 390);
+        text(j+'.0', polar.toCartesian().x, polar.toCartesian().y);
+    }
+};
+
+var drawAmmeterLabel = function() {
+    textSize(12);
+    text("Ammeter (µA)", 150, 370);
+    noStroke();
+    fill(255, 0, 0);
+};
+
+var drawAmmeterSpinner = function(angle) {
+    pushMatrix();
+    translate(184, 386);
+    rotate(-3.14 + angle);
+    stroke(255, 0, 0);
+    strokeWeight(2);
+    rect(0, 0, 60, 1);
+    popMatrix();
+    stroke(100, 100, 100);
+    strokeWeight(10);
+    point(185, 386);
+};
+
+var drawAmmeter = function(angle) {
+    drawAmmeterScreen();
+    drawAmmeterIntervals();
+    drawAmmeterLabel();
+    drawAmmeterSpinner(angle);
+};
+
+var drawLeftWire = function() {
+    fill(100, 100, 100);
+    noStroke();
+    rect(30, 360, 70, 10);
+    rect(30, 270, 10, 90);
+    rect(30, 260, 85, 10);
+};
+
+var drawCircuit = function() {
+    drawElectronCollector();
+    drawRightWire();
+    drawAmmeter(0);
+    drawLeftWire();
+    drawMetalPlate();
+};
+
+var drawWavePacket = function(wavePacket) {
+    var A = wavePacket.amplitude;
+    var y1 = wavePacket.y;
+    var cy1 = wavePacket.y - A;
+    var cy2 = wavePacket.y + A;
+    var y2 = y1;
+    
+    var lambda = wavePacket.wavelength;
+    var x1 = wavePacket.x;
+    var cx1 = x1 + lambda;
+    var cx2 = cx1 + lambda;
+    var x2 = cx2 + lambda;
+    
+    stroke(255, 255, 255);
+    strokeWeight(5);
+    noFill();
+    line(x1 - 30, y1, x1 - 1, y1); 
+    bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2);
+    var delta = 3 * wavePacket.wavelength;
+    bezier(x1 + delta, y1, cx1 + delta, cy1, cx2 + delta, cy2, x2 + delta, y2);
+    line(x2 + delta, y2, x2 + delta + 30, y2);
+    line(x1 - 30, y1, x1 - 20, y1 - 5);
+    line(x1 - 30, y1, x1 - 20, y1 + 5);
+};
+
+var getEnergyInequality = function() {
+    textSize(15);
+    var photonEnergy = (PLANCKS_CONST * LIGHT_SPEED)/(selectedWavelength * 1E-9); 
+    var str = ""+ photonEnergy;
+    str = str.substring(0, 5);
+    if(photonEnergy > selectedElement.workFunction) {
+        fill(0, 255, 0);
+        text("Photon Energy           Work Function", 20, 185);
+        text("hc/λ = " + str + " eV    >    " + selectedElement.workFunction + " eV = ϕ", 20, 200);
+        return true;
+    }
+    else {
+        fill(255, 0, 0);
+        text("Photon Energy           Work Function", 20, 185);
+        text("hc/λ = " + str + " eV    ≤    " + selectedElement.workFunction + " eV = ϕ", 20, 200);
+        return false;
+    }
+};
+
+var hasSufficientEnergy;
+var setup = function() {
+    drawHeader();
+    drawElementBoxes();
+    selectedElement.onHover();
+    drawSliders();
+    drawCircuit();
+    hasSufficientEnergy = getEnergyInequality();
+};
+
+var isMouseInside = function(element) {
+    if(mouseX > element.x && mouseX < element.x + element.length &&
+       mouseY > element.y && mouseY < element.y + element.height) {
+      return true;
+    }
+    return false;
+};
+
+var Electron = function(x, y) {
+    this.x = x;
+    this.y = y;
+    this.deltaX = 0;
+    this.deltaY = 0;
+    this.atEndOfCircuit = true;
+    this.storage = {x: x, y: y};
+    
+    Electron.prototype.draw = function(deltaX, deltaY) {
+        fill(255, 255, 0);
+        strokeWeight(2);
+        stroke(0, 0, 0);
+        textSize(10);
+        ellipse(this.x + deltaX, this.y + deltaY, 15, 15);
+        fill(0, 0, 0);
+        textAlign(CENTER, CENTER);
+        text("e-", this.x + deltaX, this.y + deltaY -1);
+        textAlign(BASELINE, BASELINE); 
+        return {x: this.x + deltaX, y: this.y + deltaY};
+    };
+    
+    Electron.prototype.store = function() {
+        this.storage = {x: this.x, y: this.y};   
+    };
+    
+    Electron.prototype.retrieve = function() {
+        return this.storage;
+    };
+};
+
+var deltaX = 0, deltaY = 0;
+var current = {hasCompletedCircuit: true, electrons: []};
+
+var spacing = 12;
+for(var i = 0, x = 120, y = 260; i < 3 * spacing; i += spacing) {
+    var electron = new Electron(x - i, y - i);
+    current.electrons.push(electron);
+}
+
+var numElectrons = 0;
+var kineticEnergy = 5;
+var ampsAngle = 0;
+var currentAngle = 0;
+
+var draw = function() {
+    setup();
+
+    for(var i = 0; i < elements.length; i++) {
+        elementBoxes[i].onHoverHandler();
+    }
+    
+    var moveElectron = function(electron, speed) {
+        if(!electron.atEndOfCircuit) {
+            var position = electron.draw(electron.deltaX, electron.deltaY);
+            drawAmmeter(currentAngle);
+            if(position.x >= 80 && position.x < 255 && position.y <= 300) {
+                electron.deltaX += speed;
+                electron.deltaY += speed/8;
+            }
+            else if(position.x >= 255 && position.x <= 355 && position.y <= 280) {
+                electron.deltaX += speed;  
+                electron.deltaY = 0;
+                electron.y = 275;
+            }
+            else if(position.x > 355 && position.x <= 365 && position.y <= 360) {
+                electron.deltaX = 0;
+                electron.x = 360;
+                electron.deltaY += speed;
+            }
+            else if(position.x >= 40 && position.x < 365 && position.y > 360) {
+                electron.deltaX -= speed;
+                electron.deltaY  = 0;
+                electron.y = 365;
+                if(currentAngle < ampsAngle) {
+                    currentAngle += 10 * (3.14/180);
+                    drawAmmeter(currentAngle);
+                }
+            }
+            else if(position.x < 40 && position.y >= 270 && position.y <= 370) {
+                electron.deltaX = 0;
+                electron.x = 35;
+                electron.deltaY -= speed;
+                if(currentAngle > 0.1) {
+                    currentAngle -= 10 * (3.14/180);
+                    drawAmmeter(currentAngle);
+                }
+            }
+            else if(position.x > 30 && position.x < 70 && position.y < 270) {
+                electron.deltaX += speed;
+                electron.deltaY = 0;
+                electron.y = 265;
+            }
+            else {
+                electron.deltaX = 0;
+                electron.deltaY = 0;
+                electron.x = electron.retrieve().x;
+                electron.y = electron.retrieve().y;
+                electron.atEndOfCircuit = true;
+            }
+        }
+    };
+    for(var i = 0; i < numElectrons; i++) {
+        moveElectron(current.electrons[i], kineticEnergy);
+    }
+    
+    var isCircuitComplete = function() {
+        for(var i = 0; i < current.electrons.length; i++) {
+            if(!current.electrons[i].atEndOfCircuit) {
+                return false;
+            }
+        }
+        return true;
+    };
+    current.hasCompletedCircuit = isCircuitComplete();
+    var updateValues = function() {
+        numElectrons = Math.ceil(intensitySlider.sliderPos/(intensitySlider.length/3));
+        kineticEnergy = (colorSlider.sliderPos/intensitySlider.length) * 7;
+        ampsAngle = intensitySlider.sliderPos * (3.14/intensitySlider.length)
+    };
+    if(current.hasCompletedCircuit) {
+        updateValues();
+    }
+
+    frameRate(50);
+    var errorMargin = 2;
+    var animateWavePacket = function() {
+        if(wavePacket.x >= 50) {
+            wavePacket.x -= 3.5;
+        }
+        else if (wavePacket.amplitude > errorMargin && wavePacket.x < 50 && wavePacket.x >= 40) {
+            wavePacket.x -= 1;
+            if(hasSufficientEnergy && current.hasCompletedCircuit) {
+                for(var i = 0; i < numElectrons; i++) {
+                    current.electrons[i].atEndOfCircuit = false;   
+                }
+            }
+        }
+        else {
+            wavePacket.x = 300;
+        }
+    };
+    
+    if(!current.hasCompletedCircuit) {
+        wavePacket.x = 300
+    }
+    if(current.hasCompletedCircuit) {
+        animateWavePacket();
+        
+        pushMatrix();
+        translate(140, 245);
+        rotate(-15);
+        if(wavePacket.amplitude > errorMargin) {
+            drawWavePacket(wavePacket);
+            translate(5, 20);
+            drawWavePacket(wavePacket);
+            translate(-10, -38);
+            drawWavePacket(wavePacket);
+        }
+        popMatrix();
+    }
+};
+
+mouseDragged = function() {
+    if(isMouseInside(colorSlider)) {
+        colorSlider.sliderPos = mouseX - colorSlider.x;
+    }
+    else if(isMouseInside(intensitySlider)){ 
+        intensitySlider.sliderPos = mouseX - intensitySlider.x;   
+    }
+};
+
+mousePressed = function() {
+    if(isMouseInside(colorSlider)) {
+        colorSlider.sliderPos = mouseX - colorSlider.x;   
+    }
+    else if(isMouseInside(intensitySlider)) {
+        intensitySlider.sliderPos = mouseX - intensitySlider.x;   
+    }  
+    for(var i = 0; i < elements.length; i++) {
+        elementBoxes[i].onClickHandler();
+    }
+};
+    }};
+
+    // Get the canvas that Processing-js will use
+    var canvas = document.getElementById("mycanvas"); 
+    // Pass the function sketchProc (defined in myCode.js) to Processing's constructor.
+    var processingInstance = new Processing(canvas, sketchProc); 
+ </script>
+
+</html>
